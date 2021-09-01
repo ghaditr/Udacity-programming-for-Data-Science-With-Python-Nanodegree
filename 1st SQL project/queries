@@ -1,0 +1,100 @@
+
+
+/* Query 1 - used for first insight */
+
+SELECT f.title            Film_title,
+       c.name             Category_name,
+       Count(r.rental_id) Rental_count
+FROM   category c
+       JOIN film_category fc
+         ON c.category_id = fc.category_id
+            AND c.name IN ( 'Animation', 'Children', 'Classics', 'Comedy',
+                            'Family', 'Music' )
+       JOIN film f
+         ON f.film_id = fc.film_id
+       JOIN inventory i
+         ON f.film_id = i.film_id
+       JOIN rental r
+         ON i.inventory_id = r.inventory_id
+GROUP  BY film_title,
+          category_name
+ORDER  BY category_name,
+          film_title; 
+
+
+
+
+/* Query 2 - used for second insight */
+
+SELECT Date_part('month', rental_date) Rental_month,
+       Date_part('year', rental_date)  Rental_year,
+       s.store_id                      id_of_store,
+       Count(rental_id)                Rental_count
+FROM   rental r
+       JOIN staff s
+         ON s.staff_id = r.staff_id
+       JOIN store st
+         ON s.store_id = st.store_id
+GROUP  BY rental_month,
+          rental_year,
+          id_of_store
+ORDER  BY rental_count DESC; 
+
+
+
+
+/* Query 3 - used for third insight */
+
+(SELECT t1.NAME,
+        t1.standard_quartile,
+        Count(t1.standard_quartile)
+ FROM   (SELECT c.NAME,
+                f.rental_duration,
+                f.title,
+                Ntile(4)
+                  OVER (
+                    ORDER BY f.rental_duration) Standard_Quartile
+         FROM   film_category fc
+                JOIN film f
+                  ON fc.film_id = f.film_id
+                JOIN category c
+                  ON c.category_id = fc.category_id
+                     AND c.NAME IN ( 'Animation', 'Children', 'Classics',
+                                     'Comedy',
+                                     'Family', 'Music' )) t1
+ GROUP  BY t1.NAME,
+           t1.standard_quartile
+ ORDER  BY t1.NAME,
+           t1.standard_quartile); 
+
+
+
+            
+/* Query 4 - used for fourth insight */
+
+WITH table1
+AS
+  (
+           SELECT   customer_id,
+                    sum(amount) AS total_amount_paid
+           FROM     payment
+           GROUP BY customer_id
+           ORDER BY total_amount_paid DESC
+           LIMIT    10)
+  SELECT   date_trunc('month', p.payment_date) pay_month,
+           c.first_name
+                    || ' '
+                    || c.last_name full_name,
+           count(p.amount)         pay_countpermon,
+           sum(p.amount)           pay_amount
+  FROM     customer c
+  JOIN     payment p
+  ON       c.customer_id = p.customer_id
+  WHERE    p.customer_id IN
+           (
+                  SELECT customer_id
+                  FROM   table1)
+  GROUP BY pay_month,
+           full_name
+  ORDER BY full_name;
+
